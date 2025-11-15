@@ -95,11 +95,11 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if(file.name.toLowerCase().endsWith('.docx')){
+      const fileName = file.name.toLowerCase();
+      if(fileName.endsWith('.docx') || fileName.endsWith('.pdf')){
         onAddDocument(file);
       } else {
-        // Simple client-side error for non-docx files
-        alert('Please upload a valid .docx file.');
+        alert('Please upload a valid .docx or .pdf file.');
       }
     }
     // Reset file input to allow uploading the same file again
@@ -177,7 +177,7 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
         <p className="text-sm font-medium text-[#A8ABB4] mb-1.5">Local Documents</p>
         <input 
           type="file" 
-          accept=".docx" 
+          accept=".docx,.pdf" 
           onChange={handleFileChange}
           ref={fileInputRef}
           style={{ display: 'none' }}
@@ -196,7 +196,7 @@ const KnowledgeBaseManager: React.FC<KnowledgeBaseManagerProps> = ({
           ) : (
             <>
               <UploadCloud size={16} />
-              <span>Upload .docx File</span>
+              <span>Upload Document</span>
             </>
           )}
         </button>

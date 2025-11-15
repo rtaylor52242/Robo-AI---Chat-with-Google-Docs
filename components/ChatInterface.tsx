@@ -63,7 +63,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             </button>
           )}
           <div>
-            <h2 className="text-xl font-semibold text-[#E2E2E2]">Documentation Browser</h2>
+            <h2 className="text-xl font-semibold text-[#E2E2E2]">Documentation Chat Bot</h2>
             {placeholderText && messages.filter(m => m.sender !== MessageSender.SYSTEM).length === 0 && (
                <p className="text-xs text-[#A8ABB4] mt-1 max-w-md truncate" title={placeholderText}>{placeholderText}</p>
             )}

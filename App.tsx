@@ -10,6 +10,7 @@ import KnowledgeBaseManager from './components/KnowledgeBaseManager';
 import ChatInterface from './components/ChatInterface';
 import HelpModal from './components/HelpModal';
 import mammoth from 'mammoth';
+import * as pdfjsLib from 'pdfjs-dist';
 
 const GEMINI_DOCS_KNOWLEDGE_URLS: KnowledgeUrl[] = [
   { url: "https://ai.google.dev/gemini-api/docs", title: "Gemini API Documentation" },
@@ -68,11 +69,24 @@ const App: React.FC = () => {
   const currentDocsForChat = activeGroup ? activeGroup.documents : [];
 
    useEffect(() => {
+    // Set PDF.js worker source once
+    try {
+      const workerSrc = 'https://esm.sh/pdfjs-dist@4.4.178/build/pdf.worker.mjs';
+      if (pdfjsLib.GlobalWorkerOptions.workerSrc !== workerSrc) {
+           pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
+      }
+    } catch (e) {
+      console.error("Failed to set pdf.js worker source", e);
+    }
+   }, []);
+
+
+   useEffect(() => {
     const apiKey = process.env.API_KEY;
     const currentActiveGroup = urlGroups.find(group => group.id === activeUrlGroupId);
     const welcomeMessageText = !apiKey 
         ? 'ERROR: Gemini API Key (process.env.API_KEY) is not configured. Please set this environment variable to use the application.'
-        : `Welcome to Documentation Browser! You're currently browsing content from: "${currentActiveGroup?.name || 'None'}". Just ask me questions, or try one of the suggestions below to get started`;
+        : `Welcome to Documentation Chat Bot! You're currently browsing content from: "${currentActiveGroup?.name || 'None'}". Just ask me questions, or try one of the suggestions below to get started`;
     
     setChatMessages([{
       id: `system-welcome-${activeUrlGroupId}-${Date.now()}`,
@@ -164,31 +178,53 @@ const App: React.FC = () => {
     setIsProcessingDoc(true);
     setDocError(null);
     try {
+      let textContent = '';
       const arrayBuffer = await file.arrayBuffer();
-      const result = await mammoth.extractRawText({ arrayBuffer });
-      
+  
+      if (file.name.toLowerCase().endsWith('.docx')) {
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        textContent = result.value;
+      } else if (file.name.toLowerCase().endsWith('.pdf')) {
+        const pdf = await pdfjsLib.getDocument(new Uint8Array(arrayBuffer)).promise;
+        const numPages = pdf.numPages;
+        let extractedText = '';
+        for (let i = 1; i <= numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          const pageText = content.items.map(item => ('str' in item ? item.str : '')).join(' ');
+          extractedText += pageText + '\n\n';
+        }
+        textContent = extractedText.trim();
+      } else {
+        throw new Error('Unsupported file type. Please select a .docx or .pdf file.');
+      }
+  
+      if (!textContent.trim()) {
+        throw new Error('Could not extract any text from the document. It might be empty or image-based.');
+      }
+  
       const newDocument: LocalDocument = {
         id: `doc-${Date.now()}-${file.name}`,
         name: file.name,
-        content: result.value,
+        content: textContent,
       };
-
-      setUrlGroups(prevGroups => 
+  
+      setUrlGroups(prevGroups =>
         prevGroups.map(group => {
           if (group.id === activeUrlGroupId) {
             if (group.documents.length < MAX_DOCS) {
               return { ...group, documents: [...group.documents, newDocument] };
             } else {
-               setDocError(`Maximum of ${MAX_DOCS} documents reached.`);
+              setDocError(`Maximum of ${MAX_DOCS} documents reached.`);
             }
           }
           return group;
         })
       );
-
     } catch (error) {
-      console.error("Error processing .docx file:", error);
-      setDocError("Failed to read the content of this .docx file.");
+      console.error("Error processing document:", error);
+      const message = error instanceof Error ? error.message : "Failed to read the content of this file.";
+      setDocError(message);
     } finally {
       setIsProcessingDoc(false);
     }

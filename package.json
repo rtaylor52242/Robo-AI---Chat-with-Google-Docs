@@ -15,7 +15,8 @@
     "marked": "^13.0.2",
     "lucide-react": "^0.417.0",
     "highlight.js": "^11.9.0",
-    "mammoth": "^1.7.2"
+    "mammoth": "^1.7.2",
+    "pdfjs-dist": "^4.4.178"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
