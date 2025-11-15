@@ -40,17 +40,25 @@ interface GeminiResponse {
 
 export const generateContentWithUrlContext = async (
   prompt: string,
-  urls: string[]
+  urls: string[],
+  documentContents: string[],
 ): Promise<GeminiResponse> => {
   const currentAi = getAiInstance();
   
   let fullPrompt = prompt;
-  if (urls.length > 0) {
-    const urlList = urls.join('\n');
-    fullPrompt = `${prompt}\n\nRelevant URLs for context:\n${urlList}`;
+  
+  if (documentContents.length > 0) {
+    const docsText = documentContents.map((content, i) => `--- START OF DOCUMENT ${i + 1} ---\n${content}\n--- END OF DOCUMENT ${i + 1} ---`).join('\n\n');
+    fullPrompt = `${prompt}\n\nUse the following document content as primary context:\n${docsText}`;
   }
 
-  const tools: Tool[] = [{ urlContext: {} }];
+  if (urls.length > 0) {
+    const urlList = urls.join('\n');
+    fullPrompt = `${fullPrompt}\n\nAlso consider these URLs for additional context:\n${urlList}`;
+  }
+
+
+  const tools: Tool[] = urls.length > 0 ? [{ urlContext: {} }] : [];
   const contents: Content[] = [{ role: "user", parts: [{ text: fullPrompt }] }];
 
   try {
@@ -100,19 +108,25 @@ export const generateContentWithUrlContext = async (
 };
 
 // This function now aims to get a JSON array of string suggestions.
-export const getInitialSuggestions = async (urls: string[]): Promise<GeminiResponse> => {
-  if (urls.length === 0) {
-    // This case should ideally be handled by the caller, but as a fallback:
-    return { text: JSON.stringify({ suggestions: ["Add some URLs to get topic suggestions."] }) };
+export const getInitialSuggestions = async (urls: string[], documentContents: string[]): Promise<GeminiResponse> => {
+  if (urls.length === 0 && documentContents.length === 0) {
+    return { text: JSON.stringify({ suggestions: ["Add URLs or documents to get topic suggestions."] }) };
   }
   const currentAi = getAiInstance();
-  const urlList = urls.join('\n');
-  
-  // Prompt updated to request JSON output of short questions
-  const promptText = `Based on the content of the following documentation URLs, provide 3-4 concise and actionable questions a developer might ask to explore these documents. These questions should be suitable as quick-start prompts. Return ONLY a JSON object with a key "suggestions" containing an array of these question strings. For example: {"suggestions": ["What are the rate limits?", "How do I get an API key?", "Explain model X."]}
 
-Relevant URLs:
-${urlList}`;
+  let contextContent = "";
+  if (documentContents.length > 0) {
+    contextContent += "DOCUMENT CONTENTS:\n" + documentContents.join('\n\n');
+  }
+  if (urls.length > 0) {
+    contextContent += "\n\nRELEVANT URLS:\n" + urls.join('\n');
+  }
+  
+  const promptText = `Based on the content of the following documentation, provide 3-4 concise and actionable questions a developer might ask to explore these documents. These questions should be suitable as quick-start prompts. Return ONLY a JSON object with a key "suggestions" containing an array of these question strings. For example: {"suggestions": ["What are the rate limits?", "How do I get an API key?", "Explain model X."]}
+
+--- START OF PROVIDED CONTENT ---
+${contextContent.trim()}
+--- END OF PROVIDED CONTENT ---`;
 
   const contents: Content[] = [{ role: "user", parts: [{ text: promptText }] }];
 
@@ -127,10 +141,8 @@ ${urlList}`;
     });
 
     const text = response.text; // This should be the JSON string
-    // urlContextMetadata is not expected here because tools cannot be used with responseMimeType: "application/json"
-    // const urlContextMetadata = response.candidates?.[0]?.urlContextMetadata?.urlMetadata as UrlContextMetadataItem[] | undefined;
     
-    return { text /*, urlContextMetadata: undefined */ }; // Explicitly undefined or not included
+    return { text };
 
   } catch (error) {
     console.error("Error calling Gemini API for initial suggestions:", error);
@@ -139,7 +151,6 @@ ${urlList}`;
       if (googleError.message && googleError.message.includes("API key not valid")) {
          throw new Error("Invalid API Key for suggestions. Please check your GEMINI_API_KEY environment variable.");
       }
-      // Check for the specific error message and re-throw a more informative one if needed
       if (googleError.message && googleError.message.includes("Tool use with a response mime type: 'application/json' is unsupported")) {
         throw new Error("Configuration error: Cannot use tools with JSON response type for suggestions. This should be fixed in the code.");
       }

@@ -6,7 +6,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage, MessageSender } from '../types'; 
 import MessageItem from './MessageItem';
-import { Send, Menu } from 'lucide-react';
+import { Send, Menu, HelpCircle } from 'lucide-react';
 
 interface ChatInterfaceProps {
   messages: ChatMessage[];
@@ -17,6 +17,7 @@ interface ChatInterfaceProps {
   onSuggestedQueryClick?: (query: string) => void;
   isFetchingSuggestions?: boolean;
   onToggleSidebar?: () => void;
+  onOpenHelp?: () => void;
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ 
@@ -28,6 +29,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   onSuggestedQueryClick,
   isFetchingSuggestions,
   onToggleSidebar,
+  onOpenHelp,
 }) => {
   const [userQuery, setUserQuery] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -67,7 +69,15 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             )}
           </div>
         </div>
-        {/* ThemeSwitcher removed */}
+        {onOpenHelp && (
+          <button 
+            onClick={onOpenHelp}
+            className="p-1.5 text-[#A8ABB4] hover:text-white rounded-full hover:bg-white/10 transition-colors"
+            aria-label="Open help"
+          >
+            <HelpCircle size={20} />
+          </button>
+        )}
       </div>
 
       <div className="flex-grow p-4 overflow-y-auto chat-container bg-[#282828]">

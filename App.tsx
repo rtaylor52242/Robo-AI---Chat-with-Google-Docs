@@ -4,60 +4,68 @@
 */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChatMessage, MessageSender, URLGroup } from './types';
+import { ChatMessage, MessageSender, URLGroup, KnowledgeUrl, LocalDocument } from './types';
 import { generateContentWithUrlContext, getInitialSuggestions } from './services/geminiService';
 import KnowledgeBaseManager from './components/KnowledgeBaseManager';
 import ChatInterface from './components/ChatInterface';
+import HelpModal from './components/HelpModal';
+import mammoth from 'mammoth';
 
-const GEMINI_DOCS_URLS = [
-  "https://ai.google.dev/gemini-api/docs",
-  "https://ai.google.dev/gemini-api/docs/quickstart",
-  "https://ai.google.dev/gemini-api/docs/api-key",
-  "https://ai.google.dev/gemini-api/docs/libraries",
-  "https://ai.google.dev/gemini-api/docs/models",
-  "https://ai.google.dev/gemini-api/docs/pricing",
-  "https://ai.google.dev/gemini-api/docs/rate-limits",
-  "https://ai.google.dev/gemini-api/docs/billing",
-  "https://ai.google.dev/gemini-api/docs/changelog",
+const GEMINI_DOCS_KNOWLEDGE_URLS: KnowledgeUrl[] = [
+  { url: "https://ai.google.dev/gemini-api/docs", title: "Gemini API Documentation" },
+  { url: "https://ai.google.dev/gemini-api/docs/quickstart", title: "Gemini API Quickstart" },
+  { url: "https://ai.google.dev/gemini-api/docs/api-key", title: "Get an API Key" },
+  { url: "https://ai.google.dev/gemini-api/docs/libraries", title: "SDK Libraries" },
+  { url: "https://ai.google.dev/gemini-api/docs/models", title: "Gemini Models" },
+  { url: "https://ai.google.dev/gemini-api/docs/pricing", title: "Pricing Information" },
+  { url: "https://ai.google.dev/gemini-api/docs/rate-limits", title: "Rate Limits" },
+  { url: "https://ai.google.dev/gemini-api/docs/billing", title: "Billing and Payments" },
+  { url: "https://ai.google.dev/gemini-api/docs/changelog", title: "API Changelog" },
 ];
 
-const MODEL_CAPABILITIES_URLS = [
-  "https://ai.google.dev/gemini-api/docs/text-generation",
-  "https://ai.google.dev/gemini-api/docs/image-generation",
-  "https://ai.google.dev/gemini-api/docs/video",
-  "https://ai.google.dev/gemini-api/docs/speech-generation",
-  "https://ai.google.dev/gemini-api/docs/music-generation",
-  "https://ai.google.dev/gemini-api/docs/long-context",
-  "https://ai.google.dev/gemini-api/docs/structured-output",
-  "https://ai.google.dev/gemini-api/docs/thinking",
-  "https://ai.google.dev/gemini-api/docs/function-calling",
-  "https://ai.google.dev/gemini-api/docs/document-processing",
-  "https://ai.google.dev/gemini-api/docs/image-understanding",
-  "https://ai.google.dev/gemini-api/docs/video-understanding",
-  "https://ai.google.dev/gemini-api/docs/audio",
-  "https://ai.google.dev/gemini-api/docs/code-execution",
-  "https://ai.google.dev/gemini-api/docs/grounding",
+const MODEL_CAPABILITIES_KNOWLEDGE_URLS: KnowledgeUrl[] = [
+  { url: "https://ai.google.dev/gemini-api/docs/text-generation", title: "Text Generation" },
+  { url: "https://ai.google.dev/gemini-api/docs/image-generation", title: "Image Generation" },
+  { url: "https://ai.google.dev/gemini-api/docs/video", title: "Video Modality" },
+  { url: "https://ai.google.dev/gemini-api/docs/speech-generation", title: "Speech Generation" },
+  { url: "https://ai.google.dev/gemini-api/docs/music-generation", title: "Music Generation" },
+  { url: "https://ai.google.dev/gemini-api/docs/long-context", title: "Long Context" },
+  { url: "https://ai.google.dev/gemini-api/docs/structured-output", title: "Structured Output (JSON)" },
+  { url: "https://ai.google.dev/gemini-api/docs/thinking", title: "Model Thinking" },
+  { url: "https://ai.google.dev/gemini-api/docs/function-calling", title: "Function Calling" },
+  { url: "https://ai.google.dev/gemini-api/docs/document-processing", title: "Document Processing" },
+  { url: "https://ai.google.dev/gemini-api/docs/image-understanding", title: "Image Understanding" },
+  { url: "https://ai.google.dev/gemini-api/docs/video-understanding", title: "Video Understanding" },
+  { url: "https://ai.google.dev/gemini-api/docs/audio", title: "Audio Modality" },
+  { url: "https://ai.google.dev/gemini-api/docs/code-execution", title: "Code Execution" },
+  { url: "https://ai.google.dev/gemini-api/docs/grounding", title: "Grounding with Google Search" },
 ];
 
 const INITIAL_URL_GROUPS: URLGroup[] = [
-  { id: 'gemini-overview', name: 'Gemini Docs Overview', urls: GEMINI_DOCS_URLS },
-  { id: 'model-capabilities', name: 'Model Capabilities', urls: MODEL_CAPABILITIES_URLS },
+  { id: 'gemini-overview', name: 'Gemini Docs Overview', urls: GEMINI_DOCS_KNOWLEDGE_URLS, documents: [] },
+  { id: 'model-capabilities', name: 'Model Capabilities', urls: MODEL_CAPABILITIES_KNOWLEDGE_URLS, documents: [] },
 ];
 
 const App: React.FC = () => {
   const [urlGroups, setUrlGroups] = useState<URLGroup[]>(INITIAL_URL_GROUPS);
   const [activeUrlGroupId, setActiveUrlGroupId] = useState<string>(INITIAL_URL_GROUPS[0].id);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
   const [initialQuerySuggestions, setInitialQuerySuggestions] = useState<string[]>([]);
   
+  const [isProcessingDoc, setIsProcessingDoc] = useState(false);
+  const [docError, setDocError] = useState<string|null>(null);
+  
   const MAX_URLS = 20;
+  const MAX_DOCS = 5;
 
   const activeGroup = urlGroups.find(group => group.id === activeUrlGroupId);
   const currentUrlsForChat = activeGroup ? activeGroup.urls : [];
+  const currentDocsForChat = activeGroup ? activeGroup.documents : [];
 
    useEffect(() => {
     const apiKey = process.env.API_KEY;
@@ -75,8 +83,8 @@ const App: React.FC = () => {
   }, [activeUrlGroupId, urlGroups]); 
 
 
-  const fetchAndSetInitialSuggestions = useCallback(async (currentUrls: string[]) => {
-    if (currentUrls.length === 0) {
+  const fetchAndSetInitialSuggestions = useCallback(async (urls: string[], docs: LocalDocument[]) => {
+    if (urls.length === 0 && docs.length === 0) {
       setInitialQuerySuggestions([]);
       return;
     }
@@ -85,7 +93,8 @@ const App: React.FC = () => {
     setInitialQuerySuggestions([]); 
 
     try {
-      const response = await getInitialSuggestions(currentUrls); 
+      const docContents = docs.map(d => d.content);
+      const response = await getInitialSuggestions(urls, docContents); 
       let suggestionsArray: string[] = [];
       if (response.text) {
         try {
@@ -117,21 +126,22 @@ const App: React.FC = () => {
   }, []); 
 
   useEffect(() => {
-    if (currentUrlsForChat.length > 0 && process.env.API_KEY) { 
-        fetchAndSetInitialSuggestions(currentUrlsForChat);
+    const urlStrings = currentUrlsForChat.map(item => item.url);
+    if ((urlStrings.length > 0 || currentDocsForChat.length > 0) && process.env.API_KEY) { 
+        fetchAndSetInitialSuggestions(urlStrings, currentDocsForChat);
     } else {
         setInitialQuerySuggestions([]); 
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUrlsForChat, fetchAndSetInitialSuggestions]); 
+  }, [currentUrlsForChat, currentDocsForChat, fetchAndSetInitialSuggestions]); 
 
 
   const handleAddUrl = (url: string) => {
     setUrlGroups(prevGroups => 
       prevGroups.map(group => {
         if (group.id === activeUrlGroupId) {
-          if (group.urls.length < MAX_URLS && !group.urls.includes(url)) {
-            return { ...group, urls: [...group.urls, url] };
+          if (group.urls.length < MAX_URLS && !group.urls.some(item => item.url === url)) {
+            const newUrlItem: KnowledgeUrl = { url, title: url };
+            return { ...group, urls: [...group.urls, newUrlItem] };
           }
         }
         return group;
@@ -143,7 +153,52 @@ const App: React.FC = () => {
     setUrlGroups(prevGroups =>
       prevGroups.map(group => {
         if (group.id === activeUrlGroupId) {
-          return { ...group, urls: group.urls.filter(url => url !== urlToRemove) };
+          return { ...group, urls: group.urls.filter(item => item.url !== urlToRemove) };
+        }
+        return group;
+      })
+    );
+  };
+
+  const handleAddDocument = async (file: File) => {
+    setIsProcessingDoc(true);
+    setDocError(null);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await mammoth.extractRawText({ arrayBuffer });
+      
+      const newDocument: LocalDocument = {
+        id: `doc-${Date.now()}-${file.name}`,
+        name: file.name,
+        content: result.value,
+      };
+
+      setUrlGroups(prevGroups => 
+        prevGroups.map(group => {
+          if (group.id === activeUrlGroupId) {
+            if (group.documents.length < MAX_DOCS) {
+              return { ...group, documents: [...group.documents, newDocument] };
+            } else {
+               setDocError(`Maximum of ${MAX_DOCS} documents reached.`);
+            }
+          }
+          return group;
+        })
+      );
+
+    } catch (error) {
+      console.error("Error processing .docx file:", error);
+      setDocError("Failed to read the content of this .docx file.");
+    } finally {
+      setIsProcessingDoc(false);
+    }
+  };
+
+  const handleRemoveDocument = (docIdToRemove: string) => {
+    setUrlGroups(prevGroups =>
+      prevGroups.map(group => {
+        if (group.id === activeUrlGroupId) {
+          return { ...group, documents: group.documents.filter(doc => doc.id !== docIdToRemove) };
         }
         return group;
       })
@@ -185,7 +240,9 @@ const App: React.FC = () => {
     setChatMessages(prevMessages => [...prevMessages, userMessage, modelPlaceholderMessage]);
 
     try {
-      const response = await generateContentWithUrlContext(query, currentUrlsForChat);
+      const urlStrings = currentUrlsForChat.map(item => item.url);
+      const docContents = currentDocsForChat.map(doc => doc.content);
+      const response = await generateContentWithUrlContext(query, urlStrings, docContents);
       setChatMessages(prevMessages =>
         prevMessages.map(msg =>
           msg.id === modelPlaceholderMessage.id
@@ -211,9 +268,9 @@ const App: React.FC = () => {
     handleSendMessage(query);
   };
   
-  const chatPlaceholder = currentUrlsForChat.length > 0 
-    ? `Ask questions about "${activeGroup?.name || 'current documents'}"...`
-    : "Select a group and/or add URLs to the knowledge base to enable chat.";
+  const chatPlaceholder = (currentUrlsForChat.length > 0 || currentDocsForChat.length > 0)
+    ? `Ask about "${activeGroup?.name || 'current documents'}"...`
+    : "Select a group, add URLs, or upload documents to enable chat.";
 
   return (
     <div 
@@ -244,6 +301,12 @@ const App: React.FC = () => {
             activeUrlGroupId={activeUrlGroupId}
             onSetGroupId={setActiveUrlGroupId}
             onCloseSidebar={() => setIsSidebarOpen(false)}
+            documents={currentDocsForChat}
+            onAddDocument={handleAddDocument}
+            onRemoveDocument={handleRemoveDocument}
+            maxDocs={MAX_DOCS}
+            isProcessingDoc={isProcessingDoc}
+            docError={docError}
           />
         </div>
 
@@ -258,9 +321,11 @@ const App: React.FC = () => {
             onSuggestedQueryClick={handleSuggestedQueryClick}
             isFetchingSuggestions={isFetchingSuggestions}
             onToggleSidebar={() => setIsSidebarOpen(true)}
+            onOpenHelp={() => setIsHelpModalOpen(true)}
           />
         </div>
       </div>
+      <HelpModal isOpen={isHelpModalOpen} onClose={() => setIsHelpModalOpen(false)} />
     </div>
   );
 };

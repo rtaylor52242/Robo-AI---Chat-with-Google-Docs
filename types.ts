@@ -23,8 +23,20 @@ export interface ChatMessage {
   urlContext?: UrlContextMetadataItem[];
 }
 
+export interface KnowledgeUrl {
+  url: string;
+  title: string;
+}
+
+export interface LocalDocument {
+  id: string;
+  name: string;
+  content: string;
+}
+
 export interface URLGroup {
   id: string;
   name: string;
-  urls: string[];
+  urls: KnowledgeUrl[];
+  documents: LocalDocument[];
 }
