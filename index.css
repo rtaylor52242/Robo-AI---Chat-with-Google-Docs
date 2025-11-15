@@ -22,7 +22,39 @@ body {
 .prose strong { font-weight: bold; color: #E2E2E2; }
 .prose em { font-style: italic; color: #E2E2E2; }
 .prose code { /* background-color and color managed by highlight.js theme */ padding: 0.2em 0.4em; border-radius: 3px; font-family: 'Courier New', Courier, monospace; font-size: 0.9em; }
-.prose pre { /* background-color and color managed by highlight.js theme */ padding: 0.8em; border-radius: 4px; overflow-x: auto; margin-bottom: 0.5em; }
+.prose pre { /* background-color and color managed by highlight.js theme */ padding: 0.8em; padding-right: 3rem; border-radius: 4px; overflow-x: auto; margin-bottom: 0.5em; }
 .prose pre code { background-color: transparent; padding: 0; font-size: 0.9em; color: inherit; }
 .prose blockquote { border-left: 3px solid #4A4A4A; margin-left: 0; padding-left: 1em; color: #A8ABB4; margin-bottom: 0.5em;}
 .prose a { color: #79B8FF; text-decoration: underline; }
+
+/* Styles for Code Block Copy Button */
+.prose .code-block-container {
+  position: relative;
+}
+
+.prose .copy-code-button {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.35rem;
+  border-radius: 0.375rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: #2C2C2C;
+  color: #A8ABB4;
+  cursor: pointer;
+  opacity: 0; /* Hidden by default */
+  transition: opacity 0.2s ease-in-out, background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.prose .code-block-container:hover .copy-code-button {
+  opacity: 1; /* Show on hover */
+}
+
+.prose .copy-code-button:hover {
+  background-color: #4A4A4A;
+  color: white;
+}

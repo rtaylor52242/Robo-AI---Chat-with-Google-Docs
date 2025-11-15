@@ -6,7 +6,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage, MessageSender } from '../types'; 
 import MessageItem from './MessageItem';
-import { Send, Menu, HelpCircle } from 'lucide-react';
+import { Send, Menu, HelpCircle, ZoomIn, ZoomOut } from 'lucide-react';
 
 interface ChatInterfaceProps {
   messages: ChatMessage[];
@@ -18,6 +18,9 @@ interface ChatInterfaceProps {
   isFetchingSuggestions?: boolean;
   onToggleSidebar?: () => void;
   onOpenHelp?: () => void;
+  fontSize: number;
+  onIncreaseFontSize: () => void;
+  onDecreaseFontSize: () => void;
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ 
@@ -30,6 +33,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   isFetchingSuggestions,
   onToggleSidebar,
   onOpenHelp,
+  fontSize,
+  onIncreaseFontSize,
+  onDecreaseFontSize,
 }) => {
   const [userQuery, setUserQuery] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -69,18 +75,39 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             )}
           </div>
         </div>
-        {onOpenHelp && (
-          <button 
-            onClick={onOpenHelp}
-            className="p-1.5 text-[#A8ABB4] hover:text-white rounded-full hover:bg-white/10 transition-colors"
-            aria-label="Open help"
-          >
-            <HelpCircle size={20} />
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+           <div className="flex items-center gap-0.5 bg-white/[.05] border border-white/[.05] rounded-full p-0.5">
+            <button
+                onClick={onDecreaseFontSize}
+                className="p-1 text-[#A8ABB4] hover:text-white rounded-full hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Decrease font size"
+                disabled={fontSize <= 75}
+            >
+                <ZoomOut size={16} />
+            </button>
+            <span className="text-xs font-mono text-center w-8 text-[#A8ABB4] select-none" aria-live="polite">{fontSize}%</span>
+            <button
+                onClick={onIncreaseFontSize}
+                className="p-1 text-[#A8ABB4] hover:text-white rounded-full hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Increase font size"
+                disabled={fontSize >= 150}
+            >
+                <ZoomIn size={16} />
+            </button>
+          </div>
+          {onOpenHelp && (
+            <button 
+              onClick={onOpenHelp}
+              className="p-1.5 text-[#A8ABB4] hover:text-white rounded-full hover:bg-white/10 transition-colors"
+              aria-label="Open help"
+            >
+              <HelpCircle size={20} />
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="flex-grow p-4 overflow-y-auto chat-container bg-[#282828]">
+      <div className="flex-grow p-4 overflow-y-auto chat-container bg-[#282828]" style={{ fontSize: `${fontSize}%` }}>
         {/* New wrapper for max-width and centering */}
         <div className="max-w-4xl mx-auto w-full">
           {messages.map((msg) => (

@@ -61,8 +61,13 @@ const App: React.FC = () => {
   const [isProcessingDoc, setIsProcessingDoc] = useState(false);
   const [docError, setDocError] = useState<string|null>(null);
   
+  const [fontSize, setFontSize] = useState(100);
+
   const MAX_URLS = 20;
   const MAX_DOCS = 5;
+  const FONT_SIZE_STEP = 5;
+  const MIN_FONT_SIZE = 75;
+  const MAX_FONT_SIZE = 150;
 
   const activeGroup = urlGroups.find(group => group.id === activeUrlGroupId);
   const currentUrlsForChat = activeGroup ? activeGroup.urls : [];
@@ -303,6 +308,14 @@ const App: React.FC = () => {
   const handleSuggestedQueryClick = (query: string) => {
     handleSendMessage(query);
   };
+
+  const handleIncreaseFontSize = () => {
+    setFontSize(prev => Math.min(prev + FONT_SIZE_STEP, MAX_FONT_SIZE));
+  };
+
+  const handleDecreaseFontSize = () => {
+    setFontSize(prev => Math.max(prev - FONT_SIZE_STEP, MIN_FONT_SIZE));
+  };
   
   const chatPlaceholder = (currentUrlsForChat.length > 0 || currentDocsForChat.length > 0)
     ? `Ask about "${activeGroup?.name || 'current documents'}"...`
@@ -358,6 +371,9 @@ const App: React.FC = () => {
             isFetchingSuggestions={isFetchingSuggestions}
             onToggleSidebar={() => setIsSidebarOpen(true)}
             onOpenHelp={() => setIsHelpModalOpen(true)}
+            fontSize={fontSize}
+            onIncreaseFontSize={handleIncreaseFontSize}
+            onDecreaseFontSize={handleDecreaseFontSize}
           />
         </div>
       </div>

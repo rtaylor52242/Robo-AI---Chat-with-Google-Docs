@@ -8,14 +8,59 @@ import { marked } from 'marked';
 import hljs from 'highlight.js';
 import { ChatMessage, MessageSender, UrlContextMetadataItem } from '../types';
 
-// Configure marked to use highlight.js for syntax highlighting
+// SVGs for the copy button
+const copyIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-copy"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>`;
+const checkIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check"><path d="M20 6 9 17l-5-5"></path></svg>`;
+
+const renderer = new marked.Renderer();
+
+// Override the code block renderer to add a copy button
+renderer.code = (code, lang) => {
+  const language = hljs.getLanguage(lang as string) ? lang : 'plaintext';
+  
+  // Defensively cast code to a string to prevent errors if the markdown is malformed.
+  const stringCode = String(code || '');
+
+  const highlightedCode = hljs.highlight(stringCode, { language: language as string }).value;
+  
+  // Use JSON.stringify to safely escape the code for embedding in the onclick attribute
+  const escapedCode = JSON.stringify(stringCode);
+  const uniqueId = `copy-btn-${Math.random().toString(16).slice(2)}`;
+
+  return `
+    <div class="code-block-container">
+      <button
+        id="${uniqueId}"
+        class="copy-code-button"
+        onclick='
+          navigator.clipboard.writeText(${escapedCode}).then(() => {
+            const button = document.getElementById("${uniqueId}");
+            if (button) {
+              button.innerHTML = \`${checkIconSvg}\`;
+              button.setAttribute("aria-label", "Copied!");
+              setTimeout(() => {
+                button.innerHTML = \`${copyIconSvg}\`;
+                button.setAttribute("aria-label", "Copy code");
+              }, 2000);
+            }
+          })
+        '
+        aria-label="Copy code"
+      >
+        ${copyIconSvg}
+      </button>
+      <pre><code class="hljs language-${language}">${highlightedCode}</code></pre>
+    </div>
+  `;
+};
+
+
+// Configure marked to use our custom renderer, runs once on module load.
 marked.setOptions({
-  highlight: function(code, lang) {
-    const language = hljs.getLanguage(lang) ? lang : 'plaintext';
-    return hljs.highlight(code, { language }).value;
-  },
+  renderer,
   langPrefix: 'hljs language-', // Prefix for CSS classes
-} as any); // Added 'as any' to bypass the type error
+});
+
 
 interface MessageItemProps {
   message: ChatMessage;
@@ -55,7 +100,8 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
   const renderMessageContent = () => {
     if (isModel && !message.isLoading) {
       const proseClasses = "prose prose-sm prose-invert w-full min-w-0"; 
-      const rawMarkup = marked.parse(message.text || "") as string;
+      // Ensure the input to marked.parse is always a string to prevent type errors.
+      const rawMarkup = marked.parse(String(message.text || "")) as string;
       return <div className={proseClasses} dangerouslySetInnerHTML={{ __html: rawMarkup }} />;
     }
     
